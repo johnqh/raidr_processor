@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/raidr_lib",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Bundle format, redaction, and analysis for raidr web app capture",
   "license": "BUSL-1.1",
   "author": "Sudobility Inc.",
@@ -35,7 +35,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test:unit": "bun test"
   },
   "dependencies": {
     "fflate": "^0.8.2"
