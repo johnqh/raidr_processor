@@ -4,11 +4,11 @@
 
 **Goal:** Turn an raidr capture bundle into a working reconstruction of the captured web app — via a `raidr_cli` binary that performs every deterministic stage, and a Claude Code `reconstruct` skill that drives it and supplies the judgment the binary cannot.
 
-**Architecture:** Pure transformations (schema inference, source-map parsing, route modelling, codegen templates) live in `raidr_lib` and are tested headlessly. All filesystem work — unzip, read, emit, spawn — lives in `raidr_cli`. The skill is markdown that shells out to the CLI and then does per-route implementation work against the CLI's intermediate artifacts.
+**Architecture:** Pure transformations (schema inference, source-map parsing, route modelling, codegen templates) live in `raidr_processor` and are tested headlessly. All filesystem work — unzip, read, emit, spawn — lives in `raidr_cli`. The skill is markdown that shells out to the CLI and then does per-route implementation work against the CLI's intermediate artifacts.
 
 **Tech Stack:** Bun, TypeScript 5.7+, `fflate` (unzip), `prettier` (beautify + format emitted code), `hono` (replay server), Playwright (fixture generation only).
 
-**Spec:** `docs/superpowers/specs/2026-08-24-raidr-design.md` (in `raidr_lib`), stages 1–9 of the Reconstruction section.
+**Spec:** `docs/superpowers/specs/2026-08-24-raidr-design.md` (in `raidr_processor`), stages 1–9 of the Reconstruction section.
 
 **Predecessor:** `docs/superpowers/plans/2026-08-24-raidr-capture.md` — milestones 1–4, shipped.
 
@@ -17,7 +17,7 @@
 ## Global Constraints
 
 - Package manager is **Bun**. Never npm, yarn, or pnpm.
-- `raidr_lib` (`@sudobility/raidr_lib`, BUSL-1.1) performs **no I/O**: no `fs`, no `chrome.*`, no `DOM` in its tsconfig `lib`. Enforced mechanically — a stray `window` or `readFile` fails typecheck.
+- `raidr_processor` (`@sudobility/raidr_processor`, BUSL-1.1) performs **no I/O**: no `fs`, no `chrome.*`, no `DOM` in its tsconfig `lib`. Enforced mechanically — a stray `window` or `readFile` fails typecheck.
 - `raidr_cli` (`@sudobility/raidr_cli`, BUSL-1.1) owns every filesystem and process operation.
 - `raidr_extension` is `private: true`.
 - Bundle `formatVersion` is `1`. `validateManifest` must reject anything else before analysis begins.
@@ -29,7 +29,7 @@
 
 ## File Structure
 
-### `raidr_lib` (additions)
+### `raidr_processor` (additions)
 
 | File | Responsibility |
 |---|---|
@@ -66,21 +66,21 @@
 
 # Milestone 5 — Real fixtures
 
-### Task 19: Move bundle assembly into `raidr_lib`
+### Task 19: Move bundle assembly into `raidr_processor`
 
 Fixtures are worthless if they are not shaped exactly like the extension's
 output. Sharing one implementation is the only way to guarantee that.
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/bundle/store.ts`
-- Create: `~/projects/raidr_lib/src/bundle/assemble.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
+- Create: `~/projects/raidr_processor/src/bundle/store.ts`
+- Create: `~/projects/raidr_processor/src/bundle/assemble.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
 - Delete: `~/projects/raidr_extension/src/offscreen/exporter.ts`
 - Modify: `~/projects/raidr_extension/src/offscreen/index.ts`, `src/offscreen/sessionState.ts`, `src/offscreen/store.ts`
-- Move: `~/projects/raidr_extension/tests/offscreen/exporter.test.ts` → `~/projects/raidr_lib/tests/bundle/assemble.test.ts`
+- Move: `~/projects/raidr_extension/tests/offscreen/exporter.test.ts` → `~/projects/raidr_processor/tests/bundle/assemble.test.ts`
 
 **Interfaces:**
-- Produces (from `@sudobility/raidr_lib`):
+- Produces (from `@sudobility/raidr_processor`):
   - `interface ContentStore { put(bytes: Uint8Array): Promise<string>; get(hash: string): Promise<Uint8Array | null>; has(hash: string): Promise<boolean>; count(): Promise<number>; totalBytes(): Promise<number> }`
   - `class MemoryContentStore implements ContentStore` — constructor `(hash: (bytes: Uint8Array) => Promise<string>)`
   - `buildBundleFiles(input: BundleInput): Promise<Record<string, Uint8Array>>`
@@ -88,14 +88,14 @@ output. Sharing one implementation is the only way to guarantee that.
   - `bundleFilename(origin: string, startedAt: string): string`
   - `interface BundleInput`, `interface RuntimeArtifacts`
 
-`MemoryContentStore` takes the hash function by injection because `raidr_lib`
+`MemoryContentStore` takes the hash function by injection because `raidr_processor`
 may not assume `crypto.subtle` exists; the extension and the CLI each pass
 their own.
 
 - [ ] **Step 1: Write the failing test**
 
 Move the existing `tests/offscreen/exporter.test.ts` to
-`~/projects/raidr_lib/tests/bundle/assemble.test.ts`, replacing the
+`~/projects/raidr_processor/tests/bundle/assemble.test.ts`, replacing the
 `IdbContentStore` + `fake-indexeddb` setup with `MemoryContentStore`:
 
 ```ts
@@ -133,7 +133,7 @@ zip round-trip, the filename test, and both source-map tests.
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/bundle/assemble.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/bundle/assemble.test.ts`
 Expected: FAIL — `MemoryContentStore` is not exported
 
 - [ ] **Step 3: Write `src/bundle/store.ts`**
@@ -150,7 +150,7 @@ export interface ContentStore {
 export type HashFn = (bytes: Uint8Array) => Promise<string>;
 
 /**
- * In-memory content store. The hash function is injected because raidr_lib
+ * In-memory content store. The hash function is injected because raidr_processor
  * cannot assume a platform crypto API exists.
  */
 export class MemoryContentStore implements ContentStore {
@@ -187,10 +187,10 @@ export class MemoryContentStore implements ContentStore {
 - [ ] **Step 4: Move the assembler**
 
 Copy `raidr_extension/src/offscreen/exporter.ts` to
-`raidr_lib/src/bundle/assemble.ts` unchanged except its imports: it now imports
+`raidr_processor/src/bundle/assemble.ts` unchanged except its imports: it now imports
 `contentPath`, `extensionForMime`, `sourcemapPath`, `toJsonl` from sibling
 modules (`../bundle/paths`, `../bundle/manifest`) and `ContentStore` from
-`./store` instead of `@sudobility/raidr_lib` and `./store`.
+`./store` instead of `@sudobility/raidr_processor` and `./store`.
 
 - [ ] **Step 5: Export from `src/index.ts`**
 
@@ -212,18 +212,18 @@ Delete `raidr_extension/src/offscreen/exporter.ts` and
 local `ContentStore` interface and re-export the library's:
 
 ```ts
-import type { ContentStore } from '@sudobility/raidr_lib';
+import type { ContentStore } from '@sudobility/raidr_processor';
 export type { ContentStore };
 ```
 
 `IdbContentStore` stays — it is the browser implementation. In
 `src/offscreen/index.ts` and `src/offscreen/sessionState.ts`, change the
-`./exporter` imports to `@sudobility/raidr_lib`.
+`./exporter` imports to `@sudobility/raidr_processor`.
 
 - [ ] **Step 7: Verify both repos**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 cd ~/projects/raidr_extension && bun test && bun run typecheck && bun run build
 ```
 Expected: lib gains the assembler tests; extension loses them and keeps the rest green. No behaviour change.
@@ -231,8 +231,8 @@ Expected: lib gains the assembler tests; extension loses them and keeps the rest
 - [ ] **Step 8: Commit both repos**
 
 ```bash
-cd ~/projects/raidr_lib && git add -A && git commit -m "refactor: move bundle assembly into the library for producer sharing"
-cd ~/projects/raidr_extension && git add -A && git commit -m "refactor: consume bundle assembly from raidr_lib"
+cd ~/projects/raidr_processor && git add -A && git commit -m "refactor: move bundle assembly into the library for producer sharing"
+cd ~/projects/raidr_extension && git add -A && git commit -m "refactor: consume bundle assembly from raidr_processor"
 ```
 
 ---
@@ -368,7 +368,7 @@ Expected: FAIL — cannot resolve `../../fixtures/api/server`
     "fixtures:capture": "bun run scripts/captureFixture.ts"
   },
   "dependencies": {
-    "@sudobility/raidr_lib": "file:../raidr_lib",
+    "@sudobility/raidr_processor": "file:../raidr_processor",
     "fflate": "^0.8.2",
     "hono": "^4.6.0",
     "prettier": "^3.6.2"
@@ -596,7 +596,7 @@ git add -A && git commit -m "feat: fixture API and real React/Vue sample apps"
 - Produces: `~/projects/raidr_cli/fixtures/bundles/react-sample.zip`, `vue-sample.zip`
 
 **Interfaces:**
-- Consumes: `buildBundleFiles`, `zipBundle`, `MemoryContentStore`, `createPseudonymizer`, `redactRequest`, `createManifest` from `@sudobility/raidr_lib`
+- Consumes: `buildBundleFiles`, `zipBundle`, `MemoryContentStore`, `createPseudonymizer`, `redactRequest`, `createManifest` from `@sudobility/raidr_processor`
 - Produces:
   - `captureApp(options: CaptureOptions): Promise<Uint8Array>` — returns the zipped bundle
   - `interface CaptureOptions { url: string; routes: string[]; outName: string }`
@@ -611,7 +611,7 @@ The harness mirrors the extension's pipeline exactly — same CDP domains, same
 // tests/capture/harness.test.ts
 import { expect, test } from 'bun:test';
 import { unzipSync, strFromU8 } from 'fflate';
-import { validateManifest, parseJsonl, type CapturedRequest } from '@sudobility/raidr_lib';
+import { validateManifest, parseJsonl, type CapturedRequest } from '@sudobility/raidr_processor';
 import { captureApp } from '../../src/capture/harness';
 import { startFixtureApi } from '../../fixtures/api/server';
 
@@ -703,7 +703,7 @@ import {
   type CapturedRequest,
   type Gap,
   type StackFingerprint,
-} from '@sudobility/raidr_lib';
+} from '@sudobility/raidr_processor';
 
 export interface CaptureOptions {
   /** Built app directory to serve statically. */
@@ -1070,7 +1070,7 @@ import {
   type RedactionEntry,
   type RuntimeArtifacts,
   type RaidrManifest,
-} from '@sudobility/raidr_lib';
+} from '@sudobility/raidr_processor';
 
 export interface LoadedBundle {
   manifest: RaidrManifest;
@@ -1210,9 +1210,9 @@ git add -A && git commit -m "feat: bundle loader reading zips and directories"
 ### Task 23: Source-map recovery
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/analysis/sourceMap.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/analysis/sourceMap.test.ts`
+- Create: `~/projects/raidr_processor/src/analysis/sourceMap.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/analysis/sourceMap.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -1295,7 +1295,7 @@ test('recovery ratio drives the recovery-mode decision', () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/analysis/sourceMap.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/analysis/sourceMap.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/analysis/sourceMap.ts`**
@@ -1373,7 +1373,7 @@ export function recoveryRatio(input: {
 Add exports to `src/index.ts`, then:
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: source-map parsing and original-source recovery"
 ```
 
@@ -1572,9 +1572,9 @@ The core algorithm of the whole analysis half. Everything typed downstream —
 the client, the types, the replay server — rests on this being right.
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/analysis/schema.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/analysis/schema.test.ts`
+- Create: `~/projects/raidr_processor/src/analysis/schema.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/analysis/schema.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -1693,7 +1693,7 @@ silently produces different types for the same endpoint on different runs.
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/analysis/schema.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/analysis/schema.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/analysis/schema.ts`**
@@ -1870,7 +1870,7 @@ export function inferSchema(samples: unknown[]): JsonSchema {
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: JSON Schema inference by sample unification"
 ```
 
@@ -1879,9 +1879,9 @@ git add -A && git commit -m "feat: JSON Schema inference by sample unification"
 ### Task 26: API model
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/analysis/apiModel.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/analysis/apiModel.test.ts`
+- Create: `~/projects/raidr_processor/src/analysis/apiModel.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/analysis/apiModel.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -1991,7 +1991,7 @@ test('ignores samples whose body is not JSON', () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/analysis/apiModel.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/analysis/apiModel.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/analysis/apiModel.ts`**
@@ -2113,7 +2113,7 @@ export function buildApiModel(samples: EndpointSample[]): ApiModel {
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: API model clustering endpoints with per-status schemas"
 ```
 
@@ -2122,9 +2122,9 @@ git add -A && git commit -m "feat: API model clustering endpoints with per-statu
 ### Task 27: Route model
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/analysis/routeModel.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`, `~/projects/raidr_cli/src/capture/harness.ts`
-- Test: `~/projects/raidr_lib/tests/analysis/routeModel.test.ts`
+- Create: `~/projects/raidr_processor/src/analysis/routeModel.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`, `~/projects/raidr_cli/src/capture/harness.ts`
+- Test: `~/projects/raidr_processor/tests/analysis/routeModel.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -2218,7 +2218,7 @@ test('static asset requests are not treated as endpoints', () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/analysis/routeModel.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/analysis/routeModel.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/analysis/routeModel.ts`**
@@ -2327,7 +2327,7 @@ Set them inside the route loop, before `page.goto`:
 Change the row construction from `navigationId: null` to
 `navigationId: currentNavigationId`, and pass `navigations` through the bundle.
 
-In `raidr_lib/src/bundle/assemble.ts`, add the field to `RuntimeArtifacts` and
+In `raidr_processor/src/bundle/assemble.ts`, add the field to `RuntimeArtifacts` and
 write the file:
 
 ```ts
@@ -2358,7 +2358,7 @@ type. In `raidr_cli/src/bundle/load.ts`, read it back:
 - [ ] **Step 5: Regenerate fixtures and verify**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run build
+cd ~/projects/raidr_processor && bun test && bun run build
 cd ~/projects/raidr_cli && bun run fixtures:capture && bun test && bun run typecheck
 ```
 Expected: fixtures rebuilt with populated `navigationId`; all tests PASS
@@ -2366,23 +2366,23 @@ Expected: fixtures rebuilt with populated `navigationId`; all tests PASS
 - [ ] **Step 6: Commit both repos**
 
 ```bash
-cd ~/projects/raidr_lib && git add -A && git commit -m "feat: route model joining router table to request timeline"
+cd ~/projects/raidr_processor && git add -A && git commit -m "feat: route model joining router table to request timeline"
 cd ~/projects/raidr_cli && git add -A && git commit -m "feat: stamp navigation ids during fixture capture"
 ```
 
 ---
 # Milestone 7 — Codegen (stages 6–7)
 
-All generators are pure `(model) => string` functions in `raidr_lib`. The CLI
+All generators are pure `(model) => string` functions in `raidr_processor`. The CLI
 writes their output to disk. Emitted source is formatted with Prettier by the
 CLI, so generators may emit readable-but-unformatted code.
 
 ### Task 28: TypeScript types from schemas
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/codegen/types.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/codegen/types.test.ts`
+- Create: `~/projects/raidr_processor/src/codegen/types.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/codegen/types.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -2464,7 +2464,7 @@ test('derives PascalCase names from method and template', () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/codegen/types.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/codegen/types.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/codegen/types.ts`**
@@ -2547,7 +2547,7 @@ function pascal(input: string): string {
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: JSON Schema to TypeScript code generation"
 ```
 
@@ -2556,9 +2556,9 @@ git add -A && git commit -m "feat: JSON Schema to TypeScript code generation"
 ### Task 29: Typed API client generation
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/codegen/client.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/codegen/client.test.ts`
+- Create: `~/projects/raidr_processor/src/codegen/client.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/codegen/client.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -2706,7 +2706,7 @@ NetworkClient pattern and makes the generated client unit-testable.
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/codegen/client.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/codegen/client.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/codegen/client.ts`**
@@ -2842,7 +2842,7 @@ ${methods.join('\n\n')}
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: typed API client and type declaration generation"
 ```
 
@@ -2851,9 +2851,9 @@ git add -A && git commit -m "feat: typed API client and type declaration generat
 ### Task 30: Replay server generation
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/codegen/replay.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/codegen/replay.test.ts`
+- Create: `~/projects/raidr_processor/src/codegen/replay.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/codegen/replay.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -2920,7 +2920,7 @@ no captured response must fail loudly, never return plausible invented data.
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/codegen/replay.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/codegen/replay.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/codegen/replay.ts`**
@@ -2980,7 +2980,7 @@ export default { port, fetch: app.fetch };
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: Hono replay server generation"
 ```
 
@@ -2989,9 +2989,9 @@ git add -A && git commit -m "feat: Hono replay server generation"
 ### Task 31: Project scaffold generation
 
 **Files:**
-- Create: `~/projects/raidr_lib/src/codegen/project.ts`
-- Modify: `~/projects/raidr_lib/src/index.ts`
-- Test: `~/projects/raidr_lib/tests/codegen/project.test.ts`
+- Create: `~/projects/raidr_processor/src/codegen/project.ts`
+- Modify: `~/projects/raidr_processor/src/index.ts`
+- Test: `~/projects/raidr_processor/tests/codegen/project.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -3126,7 +3126,7 @@ test('gaps from the capture are recorded in the project README', () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd ~/projects/raidr_lib && bun test tests/codegen/project.test.ts`
+Run: `cd ~/projects/raidr_processor && bun test tests/codegen/project.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Write `src/codegen/project.ts`**
@@ -3414,7 +3414,7 @@ createRoot(container).render(<RouterProvider router={router} />);
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 git add -A && git commit -m "feat: project scaffold generation with gap markers"
 ```
 
@@ -3589,7 +3589,7 @@ import {
   recoveryRatio,
   type EndpointSample,
   type StackFingerprint,
-} from '@sudobility/raidr_lib';
+} from '@sudobility/raidr_processor';
 import { loadBundle } from '../bundle/load';
 import { unpackChunks } from '../stages/unpack';
 import { emitFiles } from '../emit';
@@ -4017,7 +4017,7 @@ The skill drives the `raidr` CLI, so install both.
 From a clone of this repository:
 
 ```bash
-cd ~/projects/raidr_lib && bun install && bun run build
+cd ~/projects/raidr_processor && bun install && bun run build
 cd ~/projects/raidr_cli && bun install
 bun link
 ```
@@ -4218,7 +4218,7 @@ Iterate until all four pass.
 - [ ] **Step 3: Full verification across all three repos**
 
 ```bash
-cd ~/projects/raidr_lib && bun test && bun run typecheck && bun run build
+cd ~/projects/raidr_processor && bun test && bun run typecheck && bun run build
 cd ~/projects/raidr_extension && bun test && bun run typecheck && bun run build
 cd ~/projects/raidr_cli && bun test && bun run typecheck
 ```

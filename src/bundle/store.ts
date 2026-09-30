@@ -9,7 +9,7 @@ export interface ContentStore {
 export type HashFn = (bytes: Uint8Array) => Promise<string>;
 
 /**
- * In-memory content store. The hash function is injected because raidr_lib
+ * In-memory content store. The hash function is injected because raidr_processor
  * cannot assume a platform crypto API exists.
  */
 export class MemoryContentStore implements ContentStore {

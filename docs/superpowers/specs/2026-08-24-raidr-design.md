@@ -41,25 +41,25 @@ the operator's responsibility.
 
 | Repo | Package | Role |
 |---|---|---|
-| `raidr_lib` | `@sudobility/raidr_lib`, BUSL-1.1 | Bundle format types and pure analysis: redaction, coverage, schema inference |
+| `raidr_processor` | `@sudobility/raidr_processor`, BUSL-1.1 | Bundle format types and pure analysis: redaction, coverage, schema inference |
 | `raidr_extension` | private | MV3 extension: capture, introspection, coverage UI, redaction, export |
 | `raidr_cli` | `@sudobility/raidr_cli`, BUSL-1.1 | Reconstruction CLI and the Claude Code `reconstruct` skill |
 
 The dependency shape is a diamond, not a chain:
 
 ```
-raidr_lib              pure: bundle format, redaction, coverage, inference
+raidr_processor              pure: bundle format, redaction, coverage, inference
    ├── raidr_extension   browser: CDP capture, offscreen buffer, side panel
    └── raidr_cli         node: unzip, filesystem, codegen + the reconstruct skill
 ```
 
-`raidr_lib` performs **no I/O** — no filesystem, and no `DOM` in its tsconfig
+`raidr_processor` performs **no I/O** — no filesystem, and no `DOM` in its tsconfig
 `lib`. That constraint is mechanically enforced rather than merely intended,
 and it is what lets the package be imported into a Chrome MV3 bundle and tested
 in milliseconds with no environment.
 
 A CLI is the opposite: it needs `fs`, `path`, `process`, and zip extraction.
-Placing it in `raidr_lib` would put Node-only code in the dependency graph of a
+Placing it in `raidr_processor` would put Node-only code in the dependency graph of a
 browser artifact and end that enforcement the moment one file reads from disk.
 Hence the third repository. The two consumers never depend on each other.
 
@@ -67,7 +67,7 @@ Stack follows the existing extension family (`testomniac_extension`): Vite,
 `@crxjs/vite-plugin`, React, TypeScript, Bun, Tailwind. `raidr_cli` is a Bun
 binary.
 
-The bundle format types live in `raidr_lib` alone and are imported by both
+The bundle format types live in `raidr_processor` alone and are imported by both
 consumers. The format cannot drift between producer and consumer, and
 `formatVersion` makes a mismatch fail loudly at `validateManifest` rather than
 producing a subtly wrong reconstruction.
@@ -208,7 +208,7 @@ stored capture. Export is available only after that report has been shown.
 
 ## Reconstruction
 
-`raidr_lib` provides the pure transformations; `raidr_cli` wraps them in a binary
+`raidr_processor` provides the pure transformations; `raidr_cli` wraps them in a binary
 that owns all filesystem work; the `reconstruct` skill drives that binary.
 
 A skill is markdown instructions, with no import mechanism — Claude Code
@@ -247,7 +247,7 @@ missing capture.
 
 ## Testing
 
-`raidr_lib` is pure functions over fixtures, developed test-first with `bun test`.
+`raidr_processor` is pure functions over fixtures, developed test-first with `bun test`.
 Golden-file tests take a fixture bundle and snapshot `api-model.json`. Schema
 inference and path-template clustering carry the heaviest unit coverage; subtle
 wrongness hides there.
@@ -266,11 +266,11 @@ reconstruct it, assert the output builds and serves the same routes.
 
 ## Build order
 
-1. `raidr_lib` bundle types and fixtures
+1. `raidr_processor` bundle types and fixtures
 2. Extension capture core (CDP → offscreen → IndexedDB) and export
 3. Redaction and review UI
 4. Introspection and coverage meter
-5. `raidr_lib` analysis: source maps, schema inference, route model
+5. `raidr_processor` analysis: source maps, schema inference, route model
 6. Deterministic codegen and replay server
 7. `raidr_cli` binary and the `reconstruct` skill
 8. Round-trip end-to-end test

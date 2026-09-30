@@ -1,16 +1,16 @@
 {
-  "name": "@sudobility/raidr_lib",
-  "version": "0.0.7",
+  "name": "@sudobility/raidr_processor",
+  "version": "0.1.0",
   "description": "Bundle format, redaction, and analysis for raidr web app capture",
   "license": "BUSL-1.1",
   "author": "Sudobility Inc.",
-  "homepage": "https://github.com/johnqh/raidr_lib#readme",
+  "homepage": "https://github.com/johnqh/raidr_processor#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/johnqh/raidr_lib.git"
+    "url": "git+https://github.com/johnqh/raidr_processor.git"
   },
   "bugs": {
-    "url": "https://github.com/johnqh/raidr_lib/issues"
+    "url": "https://github.com/johnqh/raidr_processor/issues"
   },
   "keywords": [
     "raidr",

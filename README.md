@@ -1,16 +1,16 @@
-# raidr_lib
+# raidr_processor
 
 The pure core of **raidr** — a bundle format, redaction engine, and analysis
 pipeline for capturing a running web app and reconstructing a working
 approximation of it.
 
 ```bash
-npm install @sudobility/raidr_lib
+npm install @sudobility/raidr_processor
 ```
 
 ## What it does
 
-`raidr_lib` holds everything about raidr that is a pure function. Given the raw
+`raidr_processor` holds everything about raidr that is a pure function. Given the raw
 material of a capture — requests, responses, chunks, source maps, DOM
 snapshots — it produces the derived artifacts that reconstruction needs:
 
@@ -29,11 +29,11 @@ This package performs **no I/O**. No `fs`, no `path`, no `process`, and no
 the package safe to bundle into a Chrome MV3 extension, and what keeps every
 one of these stages testable without fixtures on disk.
 
-Callers supply bytes; `raidr_lib` returns values. The two consumers below sit on
+Callers supply bytes; `raidr_processor` returns values. The two consumers below sit on
 opposite sides of that line and never see each other:
 
 ```
-raidr_lib              pure: bundle format, redaction, coverage, inference, codegen
+raidr_processor              pure: bundle format, redaction, coverage, inference, codegen
    ├── raidr_extension   browser: CDP capture, offscreen buffer, side panel
    └── raidr_cli         node:    unzip, filesystem, project emit, replay server
 ```
@@ -53,7 +53,7 @@ Design spec and implementation plans live in `docs/superpowers/`.
 
 | Repository | Role |
 |---|---|
-| [`raidr_lib`](https://github.com/johnqh/raidr_lib) | Bundle format and pure analysis — this repo |
+| [`raidr_processor`](https://github.com/johnqh/raidr_processor) | Bundle format and pure analysis — this repo |
 | [`raidr_extension`](https://github.com/johnqh/raidr_extension) | Chrome MV3 extension that performs the capture |
 | [`raidr_cli`](https://github.com/johnqh/raidr_cli) | Reconstruction CLI and the agent skill |
 | [`raidr_web`](https://github.com/johnqh/raidr_web) | Landing site |
