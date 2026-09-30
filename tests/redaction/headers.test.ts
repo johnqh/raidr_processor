@@ -10,6 +10,10 @@ test('recognises sensitive key names', () => {
   expect(isSensitiveKey('secret')).toBe('api-key');
   // A session token is issued per user, not baked into the build.
   expect(isSensitiveKey('X-Session-Id')).toBe('session');
+  // Per-user tokens in custom headers are credentials, not shipped config.
+  for (const header of ['x-auth-token', 'X-Access-Token', 'x-user-token', 'x-csrf-token', 'X-XSRF-TOKEN', 'x-auth-key']) {
+    expect(isSensitiveKey(header)).toBe('session');
+  }
 });
 
 /**

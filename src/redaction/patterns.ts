@@ -20,6 +20,11 @@ const KEY_KINDS: Array<[RegExp, RedactionKind]> = [
   // filing it under the label for keys made a capture look full of leaked API
   // keys when it held none.
   [/(^|[-_])session([-_]|$)/i, 'session'],
+  // Per-user credentials in custom headers: X-Auth-Token, X-Access-Token,
+  // X-User-Token, X-CSRF-Token and friends. Unlike x-api-key, these are issued
+  // to a person at login and never appear in the shipped bundle.
+  [/^x-(auth|access|user|id|refresh|csrf|xsrf)[-_]?token$/i, 'session'],
+  [/^x-(auth|authorization|access)[-_]?key$/i, 'session'],
   [/^(ssn|social_?security)$/i, 'password'],
   [/^(credit_?card|card_?number|cvv|cvc)$/i, 'password'],
   [/^(email|email_?address)$/i, 'email'],
