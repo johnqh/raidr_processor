@@ -1,8 +1,13 @@
+/**
+ * Scaffolds a buildable Vite project (React or Vue) with one placeholder page
+ * per route. Returns path → file text; nothing is written here.
+ */
 import type { Gap, StackFingerprint } from '../bundle/types';
 import type { ApiModel } from '../analysis/apiModel';
 import type { RouteModel } from '../analysis/routeModel';
 import { pascal } from './types';
 
+/** What `generateProject` needs; `name` becomes the package name and page title. */
 export interface ProjectInput {
   name: string;
   stack: StackFingerprint;
@@ -160,6 +165,14 @@ ${entries}
 `;
 }
 
+/**
+ * Generates package.json, tsconfig.json, vite.config.ts, index.html, the
+ * router and one page per route. React is used unless `stack.framework` is
+ * `'vue'`. Framework and router versions come from the fingerprint (`latest`
+ * when unknown). Unvisited routes get a `RAIDR-GAP` header comment, and a
+ * non-empty `gaps` list adds `RAIDR-GAPS.md`. Lazy routes use `React.lazy` in
+ * React; in Vue every route is a dynamic import.
+ */
 export function generateProject(input: ProjectInput): Record<string, string> {
   const isVue = input.stack.framework === 'vue';
   const files: Record<string, string> = {};

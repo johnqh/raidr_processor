@@ -1,3 +1,8 @@
+/**
+ * Turns an in-memory capture into the file map of a bundle and zips it. This
+ * module defines the bundle's directory layout; readers in raidr_cli and
+ * raidr_crawler expect exactly these paths.
+ */
 import { zipSync } from 'fflate';
 import { contentPath, extensionForMime, sourcemapPath } from './paths';
 import { toJsonl } from './manifest';
@@ -10,6 +15,11 @@ import type {
 } from './types';
 import type { ContentStore } from './store';
 
+/**
+ * Runtime facts extracted in the page by the introspection probes, each
+ * written verbatim to `runtime/<name>.json`. Typed `unknown` because this
+ * package does not interpret their shape.
+ */
 export interface RuntimeArtifacts {
   framework: unknown;
   routes: unknown;
@@ -19,6 +29,7 @@ export interface RuntimeArtifacts {
   navigations: unknown;
 }
 
+/** Everything `buildBundleFiles` needs. Bodies are fetched from `store` by hash. */
 export interface BundleInput {
   store: ContentStore;
   manifest: RaidrManifest;
@@ -44,6 +55,14 @@ function json(value: unknown): Uint8Array {
   return encoder.encode(JSON.stringify(value, null, 2));
 }
 
+/**
+ * Lays a capture out as bundle-relative path → bytes, ready for `zipBundle`.
+ *
+ * Only bodies referenced by a request, frame, source map or snapshot are
+ * included, and a hash missing from the store is skipped silently (the
+ * capturer is expected to have recorded a Gap for it). Request bodies are
+ * always written with a `.json` extension regardless of their content type.
+ */
 export async function buildBundleFiles(
   input: BundleInput
 ): Promise<Record<string, Uint8Array>> {
@@ -115,6 +134,12 @@ export function zipBundle(
   return Promise.resolve(zipSync(files, { level: 6 }));
 }
 
+/**
+ * Download name for a bundle, e.g. `raidr-example.com-20260824-1000.zip`.
+ * `startedAt` must be ISO-8601; date and time are sliced from it by position,
+ * so the time is whatever zone the string is in (UTC for `toISOString()`).
+ * Throws if `origin` is not a valid URL.
+ */
 export function bundleFilename(origin: string, startedAt: string): string {
   const host = new URL(origin).host;
   const date = startedAt.slice(0, 10).replace(/-/g, '');

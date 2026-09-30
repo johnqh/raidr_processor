@@ -1,6 +1,12 @@
+/** Header redaction for captured request and response headers. */
 import type { Pseudonymizer } from './pseudonym';
 import { classifyValue, isSensitiveKey } from './patterns';
 
+/**
+ * Returns a copy of `headers` with sensitive values replaced. A header is
+ * redacted if its name is sensitive or its value is recognisably sensitive
+ * (`classifyValue`); header names are kept as-is.
+ */
 export function redactHeaders(
   headers: Record<string, string>,
   pseudonym: Pseudonymizer

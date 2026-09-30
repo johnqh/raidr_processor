@@ -1,27 +1,39 @@
+/**
+ * Capture coverage: how many known chunks were loaded, routes visited and
+ * endpoints called. Drives the extension's live coverage meter.
+ */
 import { endpointKey } from './pathTemplate';
 
+/** Bundler chunks the app declares (`known`) versus those actually fetched. */
 export interface ChunkManifest {
   known: string[];
   loaded: string[];
 }
 
+/** A route pattern from the router table and whether the operator reached it. */
 export interface RouteRecord {
   path: string;
   visited: boolean;
 }
 
+/** Inputs to `computeCoverage`. */
 export interface CoverageInput {
   chunks: ChunkManifest;
   routes: RouteRecord[];
   requests: Array<{ method: string; url: string; status: number | null }>;
 }
 
+/** Calls observed for one `endpointKey`, with the distinct statuses seen. */
 export interface EndpointCoverage {
   key: string;
   calls: number;
   statuses: number[];
 }
 
+/**
+ * Result of `computeCoverage`. `pct` values are integer percentages, and are
+ * 100 when the denominator is 0. `complete` ignores endpoints.
+ */
 export interface CoverageReport {
   chunks: { known: number; loaded: number; pct: number; missing: string[] };
   routes: { total: number; visited: number; pct: number; unvisited: string[] };
@@ -34,6 +46,10 @@ function percent(part: number, total: number): number {
   return total === 0 ? 100 : Math.round((part / total) * 100);
 }
 
+/**
+ * Computes chunk, route and endpoint coverage. Loaded chunks that are not in
+ * `known` are ignored. Endpoints are sorted by call count, descending.
+ */
 export function computeCoverage(input: CoverageInput): CoverageReport {
   const loadedSet = new Set(input.chunks.loaded);
   const missing = input.chunks.known.filter((chunk) => !loadedSet.has(chunk));

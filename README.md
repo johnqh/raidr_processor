@@ -29,13 +29,14 @@ This package performs **no I/O**. No `fs`, no `path`, no `process`, and no
 the package safe to bundle into a Chrome MV3 extension, and what keeps every
 one of these stages testable without fixtures on disk.
 
-Callers supply bytes; `raidr_processor` returns values. The two consumers below sit on
+Callers supply bytes; `raidr_processor` returns values. The consumers below sit on
 opposite sides of that line and never see each other:
 
 ```
 raidr_processor              pure: bundle format, redaction, coverage, inference, codegen
    ├── raidr_extension   browser: CDP capture, offscreen buffer, side panel
-   └── raidr_cli         node:    unzip, filesystem, project emit, replay server
+   ├── raidr_cli         bun:     unzip, filesystem, project emit, replay server
+   └── raidr_crawler     bun:     headless crawl, bundle writing
 ```
 
 ## Development
@@ -56,6 +57,7 @@ Design spec and implementation plans live in `docs/superpowers/`.
 | [`raidr_processor`](https://github.com/johnqh/raidr_processor) | Bundle format and pure analysis — this repo |
 | [`raidr_extension`](https://github.com/johnqh/raidr_extension) | Chrome MV3 extension that performs the capture |
 | [`raidr_cli`](https://github.com/johnqh/raidr_cli) | Reconstruction CLI and the agent skill |
+| [`raidr_crawler`](https://github.com/johnqh/raidr_crawler) | Headless crawler and the publish skill |
 | [`raidr_web`](https://github.com/johnqh/raidr_web) | Landing site |
 
 ## License

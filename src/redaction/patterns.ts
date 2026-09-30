@@ -1,3 +1,11 @@
+/**
+ * What counts as sensitive: by key name (`isSensitiveKey`) and by value shape
+ * (`classifyValue`). Both are consulted by header and JSON redaction.
+ *
+ * Deliberately not sensitive: `api_key`, `apikey` and `x-api-key` (see the
+ * comment in KEY_KINDS), UUIDs, and long opaque strings with no credential
+ * syntax. tests/redaction/headers.test.ts pins the x-api-key behaviour.
+ */
 import type { RedactionKind } from '../bundle/types';
 
 const UUID_RE =
@@ -31,6 +39,10 @@ const KEY_KINDS: Array<[RegExp, RedactionKind]> = [
   [/^(phone|phone_?number|mobile)$/i, 'phone'],
 ];
 
+/**
+ * Redaction kind implied by a header name or JSON property name, or null. The
+ * first matching rule in KEY_KINDS wins, so order matters. Case-insensitive.
+ */
 export function isSensitiveKey(key: string): RedactionKind | null {
   for (const [pattern, kind] of KEY_KINDS) {
     if (pattern.test(key)) return kind;
@@ -38,6 +50,10 @@ export function isSensitiveKey(key: string): RedactionKind | null {
   return null;
 }
 
+/**
+ * Redaction kind implied by a string's own syntax (JWT, `Bearer ...`, email),
+ * or null. Must match the whole string; embedded occurrences are not found.
+ */
 export function classifyValue(value: string): RedactionKind | null {
   // UUIDs first. Nothing below matches one today, but the guard states the
   // invariant that keeps a future shape rule from breaking foreign-key

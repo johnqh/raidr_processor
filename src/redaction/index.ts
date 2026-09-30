@@ -1,7 +1,12 @@
+/**
+ * Per-request redaction entry point used by every capturer (raidr_extension,
+ * raidr_cli's capture harness, raidr_crawler).
+ */
 import type { Pseudonymizer } from './pseudonym';
 import { redactHeaders } from './headers';
 import { redactHtmlHydration, redactJsonText } from './json';
 
+/** Headers and decoded text bodies of one request, before redaction. */
 export interface RedactableRequest {
   requestHeaders: Record<string, string>;
   responseHeaders: Record<string, string>;
@@ -10,6 +15,7 @@ export interface RedactableRequest {
   responseBody: string | null;
 }
 
+/** The same fields after redaction. The URL is not part of either shape. */
 export interface RedactedRequest {
   requestHeaders: Record<string, string>;
   responseHeaders: Record<string, string>;
@@ -36,6 +42,17 @@ function isHtml(mimeType: string | null): boolean {
   return (mimeType ?? '').toLowerCase().includes('html');
 }
 
+/**
+ * Redacts one request/response pair.
+ *
+ * - Headers: always, via `redactHeaders`.
+ * - Response body: JS, CSS, images and fonts are left byte-for-byte; HTML gets
+ *   hydration-state redaction only; anything else is treated as JSON.
+ * - Request body: always treated as JSON, whatever its content type, so a
+ *   form-encoded body passes through unchanged.
+ *
+ * The request URL (including its query string) is not redacted here.
+ */
 export function redactRequest(
   input: RedactableRequest,
   pseudonym: Pseudonymizer

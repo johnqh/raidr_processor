@@ -1,6 +1,15 @@
+/**
+ * Groups observed API traffic into endpoints with inferred request and
+ * response schemas. The result feeds type, client and replay-server codegen.
+ */
 import { endpointKey, toPathTemplate } from '../coverage/pathTemplate';
 import { inferSchema, type JsonSchema } from './schema';
 
+/**
+ * One observed API call with its bodies already parsed. Pass `null` for an
+ * absent request body; an `undefined` response body is not sampled, but the
+ * call and its status still count.
+ */
 export interface EndpointSample {
   method: string;
   url: string;
@@ -10,6 +19,10 @@ export interface EndpointSample {
   requestHeaders: Record<string, string>;
 }
 
+/**
+ * One endpoint (all samples sharing an `endpointKey`). `responses` has one
+ * entry per status, ascending; a missing status is recorded as 0.
+ */
 export interface EndpointModel {
   key: string;
   method: string;
@@ -20,11 +33,23 @@ export interface EndpointModel {
   responses: Array<{ status: number; count: number; schema: JsonSchema }>;
 }
 
+/**
+ * All observed endpoints, most-called first (ties by key). `baseUrl` is the
+ * origin that served the most samples, or null if no sample URL parsed.
+ */
 export interface ApiModel {
   baseUrl: string | null;
   endpoints: EndpointModel[];
 }
 
+/**
+ * Builds the API model from samples. Callers decide which requests are API
+ * calls; every sample passed in becomes part of an endpoint.
+ *
+ * `auth` is `'bearer'` if any sample carried an `authorization` header, else
+ * `'cookie'` if any carried `cookie`. Header lookups use the lowercase name
+ * only, so a mixed-case `Authorization` key is not detected.
+ */
 export function buildApiModel(samples: EndpointSample[]): ApiModel {
   const groups = new Map<
     string,

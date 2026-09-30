@@ -1,3 +1,10 @@
+/**
+ * Types that make up the capture bundle format. They describe what is
+ * serialized into `raidr.json`, `network/*.jsonl`, `gaps.json` and
+ * `redaction.json`, so changing a field is a format change for every consumer.
+ */
+
+/** Why a request's body is missing from the bundle; recorded in `gaps.json`. */
 export type GapReason =
   | 'body-evicted'
   | 'cors-opaque'
@@ -6,6 +13,12 @@ export type GapReason =
   | 'too-large'
   | 'cdp-error';
 
+/**
+ * Category of a redacted value. Determines the placeholder label
+ * (`<JWT:a1b2>`, `user1@example.com`, ...) chosen by `createPseudonymizer`.
+ * `'high-entropy'` is still accepted and labelled `SECRET`, but
+ * `classifyValue` no longer produces it: shape-only detection was removed.
+ */
 export type RedactionKind =
   | 'jwt'
   | 'bearer'
@@ -39,15 +52,22 @@ export interface CapturedRequest {
   navigationId: string | null;
 }
 
+/** One WebSocket frame. The payload lives in `content/<payloadHash>.txt`. */
 export interface CapturedFrame {
   /** CDP requestId of the WebSocket connection. */
   id: string;
+  /** Epoch milliseconds. */
   ts: number;
   direction: 'sent' | 'received';
   opcode: number;
   payloadHash: string;
 }
 
+/**
+ * A request whose body could not be captured. Reconstruction treats anything
+ * that depends on it as missing evidence (see `RAIDR-GAPS.md` in
+ * `generateProject`), never as something to invent.
+ */
 export interface Gap {
   requestId: string;
   url: string;
@@ -57,6 +77,11 @@ export interface Gap {
   detail: string | null;
 }
 
+/**
+ * One distinct placeholder written during redaction, with how many times it
+ * was substituted. Serialized as `redaction.json`; never holds the original
+ * value.
+ */
 export interface RedactionEntry {
   /** e.g. "<JWT:a1b2>" */
   placeholder: string;
@@ -64,6 +89,11 @@ export interface RedactionEntry {
   occurrences: number;
 }
 
+/**
+ * Framework, router, state libraries and bundler detected at capture time.
+ * `generateProject` picks React or Vue scaffolding from `framework`: anything
+ * other than `'vue'` is scaffolded as React.
+ */
 export interface StackFingerprint {
   framework: 'react' | 'vue' | 'unknown';
   frameworkVersion: string | null;
@@ -73,11 +103,18 @@ export interface StackFingerprint {
   bundler: 'webpack' | 'vite' | 'unknown';
 }
 
+/**
+ * Contents of `raidr.json`, the bundle's root manifest. Only
+ * `formatVersion`, `sessionId`, `origin`, `startedAt` and `counts` are checked
+ * by `validateManifest`.
+ */
 export interface RaidrManifest {
   formatVersion: 1;
   sessionId: string;
   origin: string;
+  /** ISO-8601 timestamp; `bundleFilename` slices date and time out of it. */
   startedAt: string;
+  /** ISO-8601 timestamp, or null while the capture is still running. */
   endedAt: string | null;
   counts: {
     requests: number;

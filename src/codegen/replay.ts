@@ -1,5 +1,10 @@
+/**
+ * Generates `server/replay.ts`, a Hono server that answers captured endpoints
+ * from `recordings.json` and serves the built app from `./dist`.
+ */
 import type { ApiModel } from '../analysis/apiModel';
 
+/** `/users/{id}` → `/users/:id`. */
 export function templateToHonoPath(template: string): string {
   return template.replace(/\{([^}]+)\}/g, ':$1');
 }
@@ -18,6 +23,19 @@ function apiPrefixes(model: ApiModel): string[] {
   return Array.from(prefixes).sort();
 }
 
+/**
+ * Source of the replay server. Route registration order is load-bearing:
+ * literal endpoints, then static files, then param endpoints, then 501 guards
+ * for uncaptured paths under an observed API prefix, then the SPA fallback.
+ * Each endpoint always replays its first recording, keyed by `endpointKey`,
+ * and a missing recording answers 501 `RAIDR-GAP` rather than inventing data.
+ * The server listens on `PORT`, default 8787.
+ *
+ * raidr_cli's `--replay` mirror mode rewrites this output with exact-string
+ * `.replace()` calls (in its src/commands/reconstruct.ts) on
+ * `const app = new Hono();`, the `./dist` static and fallback lines, and the
+ * body of `respond`. Editing those lines here silently disables that mode.
+ */
 export function generateReplayServer(model: ApiModel): string {
   const route = (endpoint: ApiModel['endpoints'][number]) =>
     `app.${endpoint.method.toLowerCase()}('${templateToHonoPath(endpoint.template)}', (c) => respond(c, '${endpoint.key}'));`;

@@ -1,3 +1,12 @@
+/**
+ * Content-addressed body storage used while a capture is being assembled.
+ */
+
+/**
+ * Deduplicating store keyed by content hash. Async because raidr_extension backs it
+ * with IndexedDB (`IdbContentStore`); `MemoryContentStore` is the in-process
+ * version used by raidr_cli and raidr_crawler.
+ */
 export interface ContentStore {
   put(bytes: Uint8Array): Promise<string>;
   get(hash: string): Promise<Uint8Array | null>;
@@ -6,6 +15,11 @@ export interface ContentStore {
   totalBytes(): Promise<number>;
 }
 
+/**
+ * Hashes bytes to the key used in bundle paths. Every current caller
+ * (raidr_extension, raidr_cli, raidr_crawler) passes SHA-256 as lowercase hex
+ * via WebCrypto.
+ */
 export type HashFn = (bytes: Uint8Array) => Promise<string>;
 
 /**

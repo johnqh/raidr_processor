@@ -1,6 +1,17 @@
+/**
+ * Structural redaction of JSON bodies and of the JSON state that SSR
+ * frameworks inline into HTML. Keys, nesting and non-string values are
+ * preserved so inferred schemas and the rebuilt app still line up.
+ */
 import type { Pseudonymizer } from './pseudonym';
 import { classifyValue, isSensitiveKey } from './patterns';
 
+/**
+ * Recursively redacts string leaves of a parsed JSON value. `keyHint` is the
+ * property name the value sits under; array items inherit their parent's key,
+ * so `{"emails": [...]}` is judged by `emails`. Numbers, booleans and null are
+ * never redacted.
+ */
 export function redactJsonValue(
   value: unknown,
   pseudonym: Pseudonymizer,
@@ -29,6 +40,11 @@ export function redactJsonValue(
   return value;
 }
 
+/**
+ * Parses, redacts and re-serializes a JSON document. The output is compact
+ * `JSON.stringify` output, so whitespace differs from the input even when
+ * nothing was redacted. Non-JSON text is returned unchanged.
+ */
 export function redactJsonText(
   text: string,
   pseudonym: Pseudonymizer
@@ -81,6 +97,12 @@ function readObjectLiteral(text: string, start: number): string | null {
   return null;
 }
 
+/**
+ * Redacts the object literal that follows each known hydration global
+ * (`__INITIAL_STATE__`, `__PRELOADED_STATE__`, `__NUXT__`, `__NEXT_DATA__`) in
+ * an HTML document. The rest of the HTML is untouched. A literal that is not
+ * strict JSON fails to parse and is left as-is, unredacted.
+ */
 export function redactHtmlHydration(
   html: string,
   pseudonym: Pseudonymizer

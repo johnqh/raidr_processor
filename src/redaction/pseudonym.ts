@@ -1,5 +1,11 @@
+/**
+ * Deterministic placeholders for redacted values. The same value always maps
+ * to the same placeholder within one pseudonymizer, so foreign-key-like
+ * correspondences across requests survive redaction.
+ */
 import type { RedactionEntry, RedactionKind } from '../bundle/types';
 
+/** Replaces one sensitive value of the given kind with its placeholder. */
 export type Pseudonymizer = (kind: RedactionKind, value: string) => string;
 
 const LABELS: Record<RedactionKind, string> = {
@@ -28,6 +34,19 @@ function fnv1a(input: string): number {
   return hash >>> 0;
 }
 
+/**
+ * Creates a stateful pseudonymizer for one capture session.
+ *
+ * - Emails become `user<N>@example.com` and phones `+1555<NNNNNNN>`, numbered
+ *   in first-seen order, so they stay syntactically valid for the rebuilt app.
+ *   These ignore `salt`.
+ * - Every other kind becomes `<LABEL:xxxx>`, where `xxxx` is the first four
+ *   hex digits of a salted FNV-1a hash. Only 16 bits: two distinct values can
+ *   share a placeholder, and when they do the second resets that entry's
+ *   occurrence count.
+ *
+ * `entries()` returns the `redaction.json` rows accumulated so far.
+ */
 export function createPseudonymizer(salt: string): {
   pseudonym: Pseudonymizer;
   entries(): RedactionEntry[];

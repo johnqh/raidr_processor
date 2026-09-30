@@ -1,3 +1,9 @@
+/**
+ * Recovers original source files from the `sourcesContent` of v3 source maps.
+ * Mappings are never decoded; only embedded source text is recovered.
+ */
+
+/** The fields of a v3 source map this package reads. */
 export interface SourceMap {
   version: 3;
   file?: string;
@@ -6,11 +12,13 @@ export interface SourceMap {
   mappings: string;
 }
 
+/** One recovered source file, with a repo-relative path. */
 export interface RecoveredFile {
   path: string;
   content: string;
 }
 
+/** Parses a source map, returning null unless it is JSON with version 3 and a `sources` array. */
 export function parseSourceMap(text: string): SourceMap | null {
   try {
     const parsed = JSON.parse(text) as Partial<SourceMap>;
@@ -41,6 +49,11 @@ export function normalizeSourcePath(source: string): string {
   return path;
 }
 
+/**
+ * Returns the embedded sources of a map, skipping empty entries and anything
+ * under `node_modules`. Two sources that normalize to the same path are both
+ * returned; the caller decides which wins.
+ */
 export function recoverSources(map: SourceMap): RecoveredFile[] {
   const contents = map.sourcesContent ?? [];
   const files: RecoveredFile[] = [];
@@ -56,6 +69,7 @@ export function recoverSources(map: SourceMap): RecoveredFile[] {
   return files;
 }
 
+/** `mappedBytes` as an integer percentage of `totalBytes`; 0 when `totalBytes` is 0. */
 export function recoveryRatio(input: {
   mappedBytes: number;
   totalBytes: number;

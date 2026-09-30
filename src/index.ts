@@ -1,3 +1,19 @@
+/**
+ * Public entry point of @sudobility/raidr_processor.
+ *
+ * Everything exported here is a pure function or plain type: callers supply
+ * bytes and records, this package returns values. It is bundled into the
+ * Chrome MV3 extension as well as run under Bun by raidr_cli and
+ * raidr_crawler, so nothing reachable from this file may perform I/O or touch
+ * the DOM.
+ */
+
+/**
+ * Version of the on-disk bundle layout written by `buildBundleFiles` and
+ * stamped into `raidr.json` by `createManifest`. `validateManifest` rejects any
+ * other value, so bumping it makes every existing capture unreadable by new
+ * consumers until they add a migration.
+ */
 export const RAIDR_FORMAT_VERSION = 1 as const;
 
 export type {

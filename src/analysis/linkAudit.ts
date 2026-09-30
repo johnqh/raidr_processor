@@ -1,9 +1,17 @@
+/**
+ * Finds internal links in mirrored HTML that point at nothing the capture
+ * holds. Only root-relative `href`/`src` attributes are checked; absolute URLs,
+ * relative paths and template-looking links are skipped.
+ */
+
+/** One mirrored HTML page to scan. */
 export interface AuditPage {
   /** Mirror-relative path of the page, e.g. `/index.html`. */
   path: string;
   html: string;
 }
 
+/** A link target missing from the mirror; `kind` is decided by file extension. */
 export interface UnreachableLink {
   link: string;
   /** Pages that link to it. */
@@ -11,6 +19,10 @@ export interface UnreachableLink {
   kind: 'page' | 'asset';
 }
 
+/**
+ * Audit result. `linksChecked` counts distinct links per page, so a link on
+ * two pages counts twice. Unreachable pages sort before assets.
+ */
 export interface LinkAudit {
   linksChecked: number;
   unreachable: UnreachableLink[];

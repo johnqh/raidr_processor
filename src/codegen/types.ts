@@ -1,3 +1,7 @@
+/**
+ * JsonSchema → TypeScript source text, plus the naming convention shared by
+ * generated types, client methods and pages.
+ */
 import type { JsonSchema } from '../analysis/schema';
 
 const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -7,6 +11,11 @@ function wrap(type: string): string {
   return type.includes(' | ') ? `(${type})` : type;
 }
 
+/**
+ * TypeScript type expression for a schema. Properties not in `required`
+ * become optional; non-identifier keys are quoted; an object with no
+ * properties becomes `Record<string, never>`; `unknown` stays `unknown`.
+ */
 export function schemaToType(schema: JsonSchema): string {
   if ('anyOf' in schema) return schema.anyOf.map(schemaToType).join(' | ');
 
@@ -37,6 +46,7 @@ export function schemaToType(schema: JsonSchema): string {
   }
 }
 
+/** An exported `interface` for object schemas, otherwise an exported `type` alias. */
 export function declareType(name: string, schema: JsonSchema): string {
   if ('type' in schema && schema.type === 'object') {
     return `export interface ${name} ${schemaToType(schema)}`;
@@ -44,6 +54,10 @@ export function declareType(name: string, schema: JsonSchema): string {
   return `export type ${name} = ${schemaToType(schema)};`;
 }
 
+/**
+ * PascalCase from any string, splitting on non-alphanumerics. Exported from
+ * this module (not the package index) for `pageNameFor`.
+ */
 function pascal(input: string): string {
   return input
     .split(/[^A-Za-z0-9]+/)
@@ -52,6 +66,11 @@ function pascal(input: string): string {
     .join('');
 }
 
+/**
+ * Type name for an endpoint: method + path segments + suffix, with `{param}`
+ * segments rendered as `By<Param>`. `GET /users/{id}` + `Response` gives
+ * `GetUsersByIdResponse`.
+ */
 export function typeNameFor(method: string, template: string, suffix: string): string {
   const segments = template
     .split('/')

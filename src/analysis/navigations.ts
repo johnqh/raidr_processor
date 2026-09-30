@@ -1,10 +1,16 @@
+/** Navigation timeline recovered from Document requests alone. */
 import type { CapturedRequest } from '../bundle/types';
 
+/** A distinct page, with a synthetic id of the form `doc<N>`. */
 export interface DerivedNavigation {
   navigationId: string;
   path: string;
 }
 
+/**
+ * Pages in first-visit order, and the page each request belongs to. Requests
+ * made before the first Document are absent from `assignments`.
+ */
 export interface DerivedTimeline {
   navigations: DerivedNavigation[];
   /** requestId → navigationId */

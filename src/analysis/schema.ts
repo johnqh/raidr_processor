@@ -1,3 +1,13 @@
+/**
+ * JSON Schema inference from sample values. Produces a deliberately small
+ * subset of JSON Schema that `schemaToType` can turn into TypeScript.
+ */
+
+/**
+ * The subset of JSON Schema this package emits. `unknown` means no evidence
+ * (e.g. items of an empty array); `integer` and `number` are kept apart so a
+ * single float widens the field.
+ */
 export type JsonSchema =
   | { type: 'unknown' }
   | { type: 'null' }
@@ -65,6 +75,12 @@ function collapseUnion(members: JsonSchema[]): JsonSchema {
   return unique.length === 1 ? unique[0]! : { anyOf: unique };
 }
 
+/**
+ * Merges two schemas into one that admits both. Object properties are merged
+ * and `required` becomes their intersection, except that objects sharing no
+ * keys become a union; mismatched kinds become an `anyOf`. Unions are
+ * deduplicated and sorted, so the result does not depend on argument order.
+ */
 export function unifySchemas(a: JsonSchema, b: JsonSchema): JsonSchema {
   if (kindOf(a) === 'unknown') return b;
   if (kindOf(b) === 'unknown') return a;
@@ -164,6 +180,13 @@ function applyEnums(schema: JsonSchema, samples: unknown[]): JsonSchema {
   return { ...schema, properties: sortKeys(properties) };
 }
 
+/**
+ * Infers one schema for a set of sample values (e.g. every 200 body of one
+ * endpoint). With 4 or more samples, a string property that takes at most 6
+ * distinct values becomes an enum; this applies to object properties only,
+ * recursively, not to top-level strings or array items. Returns
+ * `{ type: 'unknown' }` for no samples.
+ */
 export function inferSchema(samples: unknown[]): JsonSchema {
   if (samples.length === 0) return { type: 'unknown' };
   const unified = samples.map(schemaOf).reduce((acc, next) => unifySchemas(acc, next));

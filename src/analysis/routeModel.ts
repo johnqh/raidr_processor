@@ -1,5 +1,13 @@
+/**
+ * Attaches observed API endpoints to the app's route table, by joining each
+ * request's navigationId to the routes whose pattern matches that navigation.
+ */
 import { endpointKey } from '../coverage/pathTemplate';
 
+/**
+ * `routes` are router patterns with `:param` segments (e.g. `/users/:id`);
+ * `navigations` are concrete visited paths.
+ */
 export interface RouteModelInput {
   routes: string[];
   navigations: Array<{ navigationId: string; path: string }>;
@@ -12,6 +20,11 @@ export interface RouteModelInput {
   }>;
 }
 
+/**
+ * Routes in input order, each with the endpoint keys called while on it.
+ * `unattributed` holds endpoints with no navigation, or whose navigation
+ * matched no route. `lazy` is true for every route except the root.
+ */
 export interface RouteModel {
   routes: Array<{
     path: string;
@@ -56,6 +69,11 @@ function isApiCall(request: {
   }
 }
 
+/**
+ * Builds the route model. Only API calls are attributed: XHR/Fetch when a
+ * resource type is present, otherwise any non-asset URL; OPTIONS preflights
+ * are always ignored. A route is `visited` if any navigation path matches it.
+ */
 export function buildRouteModel(input: RouteModelInput): RouteModel {
   const byNavigation = new Map<string, string[]>();
   const unattributed: string[] = [];
