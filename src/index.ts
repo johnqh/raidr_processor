@@ -70,14 +70,17 @@ export {
   bundleFilename,
 } from './bundle/assemble';
 export type { BundleInput, RuntimeArtifacts } from './bundle/assemble';
+export { readBundle, unzipBundle } from './bundle/read';
+export type { LoadedBundle } from './bundle/read';
 
 export {
   parseSourceMap,
   recoverSources,
   recoveryRatio,
   normalizeSourcePath,
+  recoverBundleSources,
 } from './analysis/sourceMap';
-export type { SourceMap, RecoveredFile } from './analysis/sourceMap';
+export type { SourceMap, RecoveredFile, BundleSources } from './analysis/sourceMap';
 
 export { inferSchema, unifySchemas } from './analysis/schema';
 export type { JsonSchema } from './analysis/schema';

@@ -34,7 +34,7 @@ Use Bun for everything; never npm, yarn or pnpm. Each result below was observed 
 | --- | --- | --- |
 | `bun install` | Install deps (`fflate`, plus `typescript` and `@types/bun` for dev) | pass |
 | `bun run typecheck` | `tsc --noEmit` | pass |
-| `bun run test:unit` | `bun test`: all of `tests/` | pass, 174 tests in 20 files |
+| `bun run test:unit` | `bun test`: all of `tests/` | pass, 178 tests in 21 files (2026-10-05) |
 | `bun run build` | `tsc` → `dist/` (JS and `.d.ts`; `dist/` is gitignored) | pass |
 
 There is no `lint` script and no `test` script. `bun test` does the same thing as `test:unit`.
@@ -50,6 +50,7 @@ src/
     manifest.ts          createManifest / validateManifest, JSONL codec
     store.ts             ContentStore interface, MemoryContentStore (hash fn injected)
     assemble.ts          buildBundleFiles (the bundle's directory layout), zipBundle, bundleFilename
+    read.ts              readBundle (files by path → LoadedBundle, validated), unzipBundle (zip bytes)
   redaction/
     patterns.ts          isSensitiveKey (KEY_KINDS table), classifyValue (value syntax)
     pseudonym.ts         createPseudonymizer: deterministic placeholders + redaction.json entries
@@ -60,7 +61,8 @@ src/
     pathTemplate.ts      toPathTemplate (/users/42 → /users/{id}), endpointKey ("GET /users/{id}")
     coverage.ts          computeCoverage (chunks, routes, endpoints)
   analysis/
-    sourceMap.ts         parseSourceMap, recoverSources (from sourcesContent only), recoveryRatio
+    sourceMap.ts         parseSourceMap, recoverSources (from sourcesContent only), recoveryRatio,
+                         recoverBundleSources (every mapped script of a LoadedBundle + ratio)
     schema.ts            inferSchema / unifySchemas (JSON Schema subset, enum detection)
     apiModel.ts          buildApiModel: samples → endpoints with request and response schemas
     routeModel.ts        buildRouteModel: route table + navigations → endpoints per route
@@ -168,7 +170,8 @@ The data flow, with every stage a pure function:
    `src/bundle/manifest.ts`. Only bump `RAIDR_FORMAT_VERSION` for a breaking layout change.
 4. Add tests in `tests/bundle/`.
 5. Update the writers (raidr_extension, `raidr_cli/src/capture/harness.ts`, raidr_crawler) and the
-   readers (`raidr_cli/src/bundle/load.ts`, `raidr_crawler/src/bundle/load.ts`).
+   reader, `src/bundle/read.ts` (`readBundle`; raidr_cli's and raidr_crawler's `src/bundle/load.ts`
+   only read the files from disk and call it).
 
 **Add a redaction rule**
 

@@ -2,6 +2,7 @@
  * Recovers original source files from the `sourcesContent` of v3 source maps.
  * Mappings are never decoded; only embedded source text is recovered.
  */
+import type { LoadedBundle } from '../bundle/read';
 
 /** The fields of a v3 source map this package reads. */
 export interface SourceMap {
@@ -76,4 +77,46 @@ export function recoveryRatio(input: {
 }): number {
   if (input.totalBytes === 0) return 0;
   return Math.round((input.mappedBytes / input.totalBytes) * 100);
+}
+
+/** What a bundle's source maps give back. */
+export interface BundleSources {
+  /** One file per path, the last map naming a path winning, in first-seen order. */
+  files: RecoveredFile[];
+  /** Bytes of captured JavaScript a usable source map covers. */
+  mappedBytes: number;
+  /** Bytes of captured JavaScript. */
+  totalBytes: number;
+  /** `recoveryRatio` of the two. */
+  ratio: number;
+}
+
+/**
+ * The original sources of every captured script that has a usable source map
+ * in the bundle (`sourcemaps/index.json`), and how much of the JavaScript
+ * those maps cover.
+ */
+export function recoverBundleSources(
+  bundle: Pick<LoadedBundle, 'requests' | 'sourceMaps' | 'content' | 'text'>
+): BundleSources {
+  const byPath = new Map<string, string>();
+  let mappedBytes = 0;
+  let totalBytes = 0;
+  for (const request of bundle.requests) {
+    if (!request.mimeType?.includes('javascript') || !request.responseBodyHash) continue;
+    const size = bundle.content.get(request.responseBodyHash)?.byteLength ?? 0;
+    totalBytes += size;
+    const mapHash = bundle.sourceMaps[request.url];
+    const mapText = mapHash ? bundle.text(mapHash) : null;
+    const map = mapText === null ? null : parseSourceMap(mapText);
+    if (!map) continue;
+    mappedBytes += size;
+    for (const file of recoverSources(map)) byPath.set(file.path, file.content);
+  }
+  return {
+    files: [...byPath].map(([path, content]) => ({ path, content })),
+    mappedBytes,
+    totalBytes,
+    ratio: recoveryRatio({ mappedBytes, totalBytes }),
+  };
 }
