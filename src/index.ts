@@ -102,3 +102,30 @@ export type { DerivedNavigation, DerivedTimeline } from './analysis/navigations'
 
 export { auditLinks } from './analysis/linkAudit';
 export type { LinkAudit, AuditPage, UnreachableLink } from './analysis/linkAudit';
+
+export {
+  auditCandidates,
+  auditPrompt,
+  applyAuditAnswer,
+  parseAuditAnswer,
+  candidatesToIssues,
+  countBySeverity,
+  maskSecret,
+  maskSecrets,
+  AUDIT_INSTRUCTIONS,
+  AUDIT_SEVERITIES,
+  MAX_AUDIT_CANDIDATES,
+} from './audit/index';
+export type {
+  AuditAnswerItem,
+  AuditCandidate,
+  AuditCategory,
+  AuditConfidence,
+  AuditCookie,
+  AuditEvidence,
+  AuditInput,
+  AuditIssue,
+  AuditRequest,
+  AuditScript,
+  AuditSeverity,
+} from './audit/index';

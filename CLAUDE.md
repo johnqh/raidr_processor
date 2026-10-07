@@ -34,7 +34,7 @@ Use Bun for everything; never npm, yarn or pnpm. Each result below was observed 
 | --- | --- | --- |
 | `bun install` | Install deps (`fflate`, plus `typescript` and `@types/bun` for dev) | pass |
 | `bun run typecheck` | `tsc --noEmit` | pass |
-| `bun run test:unit` | `bun test`: all of `tests/` | pass, 178 tests in 21 files (2026-10-05) |
+| `bun run test:unit` | `bun test`: all of `tests/` | pass, 199 tests in 22 files (2026-10-06) |
 | `bun run build` | `tsc` → `dist/` (JS and `.d.ts`; `dist/` is gitignored) | pass |
 
 There is no `lint` script and no `test` script. `bun test` does the same thing as `test:unit`.
@@ -68,6 +68,15 @@ src/
     routeModel.ts        buildRouteModel: route table + navigations → endpoints per route
     navigations.ts       deriveTimeline: navigations recovered from Document requests
     linkAudit.ts         auditLinks: internal links in a mirror that resolve to nothing
+  audit/                 passive security audit of a capture (raidr_crawler runs it, Claude Code reviews)
+    types.ts             AuditInput (requests, scripts, cookies, storage keys), AuditCandidate, AuditIssue
+    text.ts              maskSecret(s), excerpt, lineAt, fnv1a fingerprints, stableFileName
+    codeRules.ts         secrets, internal hosts, public source maps, tainted DOM/eval/redirect sinks,
+                         message handlers without an origin check, credentials in web storage
+    trafficRules.ts      CSP/HSTS/framing/nosniff, version banners, CORS with credentials, session
+                         cookies, mixed content, verbose errors, secret fields, personal data without auth
+    index.ts             auditCandidates, AUDIT_INSTRUCTIONS, auditPrompt, parseAuditAnswer,
+                         applyAuditAnswer, candidatesToIssues, countBySeverity
   codegen/
     types.ts             schemaToType, declareType, typeNameFor, pascal
     client.ts            generateTypes, generateClient (typed fetch ApiClient)
@@ -95,6 +104,34 @@ The data flow, with every stage a pure function:
    - `auditLinks` over the mirror.
 4. `endpointKey` is the join key for the API model, the route model, coverage and replay
    recordings.
+
+## The security audit (`src/audit/`)
+
+`auditCandidates(input)` runs every rule and returns candidates, most severe
+then most certain first, numbered `c1…`, unique by `fingerprint`, at most
+`MAX_AUDIT_CANDIDATES` (150). The caller sends `AUDIT_INSTRUCTIONS` (fixed,
+cacheable) and `auditPrompt(origin, batch)` to a model, then
+`applyAuditAnswer(batch, parseAuditAnswer(answer))`: dropped candidates go,
+kept ones take the model's severity, confidence and text; rule, category,
+CWE, OWASP, evidence and fingerprint never come from the model. A candidate
+the answer skips keeps the rule's defaults; `candidatesToIssues` is the
+no-model path. `AuditIssue` matches raidr_types' `SecurityIssueInput`
+field for field (this package does not depend on raidr_types).
+
+- **Every snippet is masked.** `excerpt` runs `maskSecrets` (the
+  `SECRET_VALUE_RES` patterns and URL passwords); never put raw script or
+  body text into evidence or `context` any other way.
+- **Precision over recall.** Client-code sinks count only when the value
+  written (up to the next `;` `,` `}` or newline) reads the URL, referrer,
+  window name or `e.data`; message handlers only when inline on `window`;
+  personal data only when a field's value has the data's shape and the file
+  is not static content (`/locales/`, a `.json` file outside `/api/`). Each
+  of these was a false positive on a real site; `tests/audit/audit.test.ts`
+  pins them.
+- **Fingerprints are stable across deploys**: rule + host, or a hash of the
+  secret, or `stableFileName` (build hash dropped) + the snippet without
+  minified identifiers.
+- No `atob` (not in ES2022 lib): JWT payloads are decoded by `base64UrlDecode`.
 
 ## Invariants that are easy to break
 
