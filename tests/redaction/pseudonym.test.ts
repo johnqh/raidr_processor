@@ -57,3 +57,19 @@ test('entries never contain the original values', () => {
   pseudonym('jwt', 'super-secret-token');
   expect(JSON.stringify(entries())).not.toContain('super-secret-token');
 });
+
+test('emails the site masked get their own placeholders', () => {
+  const { pseudonym } = createPseudonymizer('salt-1');
+  expect(pseudonym('email', 'jane@corp.com')).toBe('user1@example.com');
+  expect(pseudonym('email', 'ja***@corp.com')).toBe('masked1@example.com');
+  expect(pseudonym('email', 'b•••@corp.com')).toBe('masked2@example.com');
+  expect(pseudonym('email', 'ja***')).toBe('masked3@example.com');
+  expect(pseudonym('email', 'ja***@corp.com')).toBe('masked1@example.com');
+  expect(pseudonym('email', 'bob@corp.com')).toBe('user2@example.com');
+});
+
+test('an empty value stays empty', () => {
+  const { pseudonym, entries } = createPseudonymizer('salt-1');
+  expect(pseudonym('email', '')).toBe('');
+  expect(entries()).toHaveLength(0);
+});

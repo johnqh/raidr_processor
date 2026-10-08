@@ -8,6 +8,15 @@ import type { RedactionEntry, RedactionKind } from '../bundle/types';
 /** Replaces one sensitive value of the given kind with its placeholder. */
 export type Pseudonymizer = (kind: RedactionKind, value: string) => string;
 
+/**
+ * An email the site already hid: `ab***@gmail.com`, `j•••@x.io`, `a...@b.com`,
+ * or no full address at all (`ab***`). Its placeholder says so, otherwise the
+ * bundle cannot tell a leaked address from a masked one.
+ */
+export function isMaskedEmail(value: string): boolean {
+  return /[*•…]|\.{3}/.test(value) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+}
+
 const LABELS: Record<RedactionKind, string> = {
   jwt: 'JWT',
   bearer: 'BEARER',
@@ -39,7 +48,10 @@ function fnv1a(input: string): number {
  *
  * - Emails become `user<N>@example.com` and phones `+1555<NNNNNNN>`, numbered
  *   in first-seen order, so they stay syntactically valid for the rebuilt app.
- *   These ignore `salt`.
+ *   These ignore `salt`. An email the site had masked (`isMaskedEmail`)
+ *   becomes `masked<N>@example.com`, numbered separately.
+ * - An empty value stays empty: there is nothing to hide, and a placeholder
+ *   would invent an address the site never sent.
  * - Every other kind becomes `<LABEL:xxxx>`, where `xxxx` is the first four
  *   hex digits of a salted FNV-1a hash. Only 16 bits: two distinct values can
  *   share a placeholder, and when they do the second resets that entry's
@@ -54,14 +66,19 @@ export function createPseudonymizer(salt: string): {
   const assigned = new Map<string, string>();
   const counts = new Map<string, { kind: RedactionKind; occurrences: number }>();
   let emailCounter = 0;
+  let maskedEmailCounter = 0;
   let phoneCounter = 0;
 
   const pseudonym: Pseudonymizer = (kind, value) => {
+    if (value === '') return value;
     const key = `${kind}:${value}`;
     let placeholder = assigned.get(key);
 
     if (placeholder === undefined) {
-      if (kind === 'email') {
+      if (kind === 'email' && isMaskedEmail(value)) {
+        maskedEmailCounter += 1;
+        placeholder = `masked${maskedEmailCounter}@example.com`;
+      } else if (kind === 'email') {
         emailCounter += 1;
         placeholder = `user${emailCounter}@example.com`;
       } else if (kind === 'phone') {

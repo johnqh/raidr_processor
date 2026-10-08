@@ -34,7 +34,7 @@ Use Bun for everything; never npm, yarn or pnpm. Each result below was observed 
 | --- | --- | --- |
 | `bun install` | Install deps (`fflate`, plus `typescript` and `@types/bun` for dev) | pass |
 | `bun run typecheck` | `tsc --noEmit` | pass |
-| `bun run test:unit` | `bun test`: all of `tests/` | pass, 199 tests in 22 files (2026-10-06) |
+| `bun run test:unit` | `bun test`: all of `tests/` | pass, 204 tests in 22 files (2026-10-08) |
 | `bun run build` | `tsc` → `dist/` (JS and `.d.ts`; `dist/` is gitignored) | pass |
 
 There is no `lint` script and no `test` script. `bun test` does the same thing as `test:unit`.
@@ -253,7 +253,11 @@ field for field (this package does not depend on raidr_types).
   differ from the original even when nothing was replaced. A non-JSON body comes back unchanged.
 - Pseudonym digests are 16 bits, from a salted FNV-1a hash. A collision makes two values share a
   placeholder and resets that entry's occurrence count. Emails and phones use counters, not the
-  salt.
+  salt. An email the site had masked (`ab***@x.com`, or no full address: `isMaskedEmail`) becomes
+  `masked<N>@example.com`, so the audit can tell a leaked address from a masked one; an empty
+  value stays empty. `AUDIT_INSTRUCTIONS` tells the reviewer that `user<N>@example.com` stands for
+  a real address (it used to drop or doubt such findings as placeholders, www.dlnews.com
+  2026-10-07), and `unauthenticated-pii` ignores masked addresses.
 - `buildApiModel` detects auth only from lowercase `authorization` and `cookie` header keys.
 - `toPathTemplate` reuses placeholder names, so `/a/1/b/2` becomes `/a/{id}/b/{id}`. That has two
   effects:

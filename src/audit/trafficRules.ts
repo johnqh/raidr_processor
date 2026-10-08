@@ -420,7 +420,8 @@ const SECRET_FIELD_RE =
 /**
  * Personal data fields: a field name, and the shape its value must have to be
  * data rather than a label (`"email": "Email address"` in a translation file).
- * Redacted values keep their shape (`user1@example.com`, `+15550000001`).
+ * Redacted values keep their shape (`user1@example.com`, `+15550000001`);
+ * an address the site masked (`masked1@example.com`, `ab***@x.com`) is not data.
  */
 const PII_FIELDS: Array<[RegExp, RegExp]> = [
   [/^(e_?mail(_?address)?|email_?addr)$/i, /^[^\s@]+@[^\s@]+\.[^\s@]+$/],
@@ -437,9 +438,13 @@ interface FieldHits {
   values: Set<string>;
 }
 
+/** An address the site masked: the redaction placeholder for one, or a raw masked value. */
+const MASKED_EMAIL_RE = /^masked\d+@example\.com$|[*•…]|\.{3}/;
+
 function piiValue(key: string, value: unknown): boolean {
   if (typeof value !== 'string' && typeof value !== 'number') return false;
   const text = String(value).trim();
+  if (MASKED_EMAIL_RE.test(text) && /@/.test(text)) return false;
   return PII_FIELDS.some(([name, shape]) => name.test(key) && shape.test(text));
 }
 

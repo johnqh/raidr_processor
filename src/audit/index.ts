@@ -56,6 +56,7 @@ export const AUDIT_INSTRUCTIONS = `You review candidate security issues that fix
 
 For each candidate decide whether it is a real weakness of this site:
 - Drop false positives: public-by-design keys (publishable, anon, maps, analytics), test or placeholder values, library code, sinks fed by constants, handlers that check the origin elsewhere in the shown code, personal data that is clearly the site's own public contact details.
+- Personal values in the evidence were replaced before you see them: \`user<N>@example.com\` and \`+1555<NNNNNNN>\` stand for real addresses and numbers the site returned, so they are not placeholders or test data; \`masked<N>@example.com\` stands for an address the site itself had masked.
 - Keep real issues and set severity (critical, high, medium, low, info) and confidence (high, medium, low) from the evidence. Do not raise severity for things the evidence cannot show.
 - Write a plain title (at most 120 characters), a description of the risk to this site (2-3 sentences, name the file, endpoint, header or cookie) and a concrete fix (1-2 sentences). Never quote a secret value in full.
 

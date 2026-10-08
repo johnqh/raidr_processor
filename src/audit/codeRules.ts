@@ -349,6 +349,14 @@ const SINKS: Sink[] = [
   },
 ];
 
+/**
+ * A navigation to the raw `location.hash`: the value keeps its leading `#`,
+ * so it is a same-page fragment (`#https://evil`, `#javascript:` included),
+ * never another site. Once the `#` is cut (`.slice(1)`) it is a real
+ * redirect. imo.im re-scrolls with `location.href = location.hash`.
+ */
+const BARE_HASH_RE = /^\s*\(?\s*(?:window\.|document\.)?location\.hash\s*\)*\s*$/;
+
 /** How far around a sink a tainted source may be to count as feeding it. */
 const TAINT_WINDOW = 200;
 
@@ -371,6 +379,7 @@ function taintedSinks(input: AuditInput): Draft[] {
             )
             .split(/[;,\n}]/)[0] ?? "";
         if (!TAINT_RE.test(written)) continue;
+        if (sink.rule === "open-redirect" && BARE_HASH_RE.test(written)) continue;
         const snippet = excerpt(script.text, index, index + match[0].length);
         const fingerprint = `${sink.rule}:${fnv1a(`${stableFileName(script.file)}:${snippet.replace(/[A-Za-z_$][\w$]?\b/g, "")}`)}`;
         if (seen.has(fingerprint)) continue;

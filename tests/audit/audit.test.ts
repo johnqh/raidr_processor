@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AUDIT_INSTRUCTIONS,
   applyAuditAnswer,
   auditCandidates,
   auditPrompt,
@@ -432,6 +433,17 @@ describe("false positives seen on real sites", () => {
     ).not.toContain("postmessage-no-origin-check");
   });
 
+  test("a navigation to the raw location.hash stays on the page", () => {
+    expect(
+      code(
+        'mounted:function(){this.refreshAos(),location.hash&&(location.href=location.hash),c.track("pc home mounted","")}',
+      ),
+    ).not.toContain("open-redirect");
+    expect(code("window.location = window.location.hash;")).not.toContain("open-redirect");
+    expect(code("location.href = location.hash.slice(1);")).toContain("open-redirect");
+    expect(code('location.replace(location.hash.replace("#", ""))')).toContain("open-redirect");
+  });
+
   test("a redirect to a constant next to unrelated message data is not tainted", () => {
     expect(
       code("window.location.href=l.Z.HOME,(0,s.Z)().isNotEmpty(e.data.cart)"),
@@ -455,5 +467,33 @@ describe("false positives seen on real sites", () => {
       }),
     );
     expect(c).not.toContain("unauthenticated-pii");
+  });
+
+  test("addresses the site masked are not personal data", () => {
+    const c = rules(
+      input({
+        requests: [
+          req({ responseHeaders: SAFE_HEADERS }),
+          req({
+            url: "https://www.example.com/api/leaderboard",
+            resourceType: "XHR",
+            mimeType: "application/json",
+            responseText: JSON.stringify({
+              ranks: [
+                { email: "masked1@example.com" },
+                { email: "masked2@example.com" },
+                { email: "ab***@gmail.com" },
+              ],
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(c).not.toContain("unauthenticated-pii");
+  });
+
+  test("the reviewer is told that pseudonymized values are real", () => {
+    expect(AUDIT_INSTRUCTIONS).toContain("user<N>@example.com");
+    expect(AUDIT_INSTRUCTIONS).toContain("masked<N>@example.com");
   });
 });

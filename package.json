@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/raidr_processor",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Bundle format, redaction, and analysis for raidr web app capture",
   "license": "BUSL-1.1",
   "author": "Sudobility Inc.",
