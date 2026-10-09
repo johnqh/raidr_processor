@@ -34,7 +34,7 @@ Use Bun for everything; never npm, yarn or pnpm. Each result below was observed 
 | --- | --- | --- |
 | `bun install` | Install deps (`fflate`, plus `typescript` and `@types/bun` for dev) | pass |
 | `bun run typecheck` | `tsc --noEmit` | pass |
-| `bun run test:unit` | `bun test`: all of `tests/` | pass, 204 tests in 22 files (2026-10-08) |
+| `bun run test:unit` | `bun test`: all of `tests/` | pass, 205 tests in 22 files (2026-10-09) |
 | `bun run build` | `tsc` → `dist/` (JS and `.d.ts`; `dist/` is gitignored) | pass |
 
 There is no `lint` script and no `test` script. `bun test` does the same thing as `test:unit`.
@@ -119,8 +119,12 @@ no-model path. `AuditIssue` matches raidr_types' `SecurityIssueInput`
 field for field (this package does not depend on raidr_types).
 
 - **Every snippet is masked.** `excerpt` runs `maskSecrets` (the
-  `SECRET_VALUE_RES` patterns and URL passwords); never put raw script or
-  body text into evidence or `context` any other way.
+  `SECRET_VALUE_RES` patterns, Google `1//0…` refresh and `ya29.` access
+  tokens included, any quoted value under a secret-named key such as
+  `client_secret:"…"` (`KEYED_SECRET_RE`), and URL passwords); never put raw
+  script or body text into evidence or `context` any other way. Before
+  2026-10-09 a hex Facebook app secret and a Google refresh token were stored
+  whole in snippets (share.myjosh.in); six stored issues were re-masked.
 - **Precision over recall.** Client-code sinks count only when the value
   written (up to the next `;` `,` `}` or newline) reads the URL, referrer,
   window name or `e.data`; message handlers only when inline on `window`;

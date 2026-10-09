@@ -64,6 +64,21 @@ describe("masking", () => {
     expect(masked).toContain("sk_l…34");
   });
 
+  test("masks Google tokens and any value under a secret-named key", () => {
+    // Built at run time, like the Stripe keys above.
+    const refresh = "1/" + "/0gUYQkaCLFni7CgYIARAAGBASNwF-L9Ir";
+    const access = "ya2" + "9.a0AfB_byC1234567890abcdefghij";
+    const fbSecret = "13aca571f6ed26c78e5dc1a72befb4c5";
+    const text = `r={client_id:"284234693351270",client_secret:"${fbSecret}",refresh_token:"${refresh}",x:"${access}","password": "hunter2hunter2",grant_type:"authorization_code"}`;
+    const masked = maskSecrets(text);
+    for (const secret of [fbSecret, refresh, access, "hunter2hunter2"])
+      expect(masked).not.toContain(secret);
+    expect(masked).toContain('client_secret:"13ac…c5"');
+    expect(masked).toContain('client_id:"284234693351270"');
+    expect(masked).toContain('grant_type:"authorization_code"');
+    expect(maskSecrets('client_secret:"GOCS…gf"')).toBe('client_secret:"GOCS…gf"');
+  });
+
   test("stable file names drop build hashes", () => {
     expect(stableFileName("https://x.com/static/js/main.3f2a9c1b.js?v=2")).toBe(
       "main.js",

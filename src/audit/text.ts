@@ -23,6 +23,9 @@ export const SECRET_VALUE_RES: RegExp[] = [
   /\bgithub_pat_[A-Za-z0-9_]{40,}\b/g,
   /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g,
   /\bGOCSPX-[A-Za-z0-9_-]{20,}\b/g,
+  // Google OAuth refresh and access tokens.
+  /\b1\/\/0[A-Za-z0-9_-]{20,}/g,
+  /\bya29\.[A-Za-z0-9_-]{20,}/g,
   /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{20,}\b/g,
   /\bkey-[0-9a-f]{32}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
@@ -32,12 +35,25 @@ export const SECRET_VALUE_RES: RegExp[] = [
 /** Credentials inside URLs (`postgres://user:pass@host`): the password part. */
 const URL_PASSWORD_RE = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@'"`]+:)([^\s/@'"`]+)(@)/gi;
 
+/**
+ * A quoted value under a secret-named key (`client_secret:"13ac…"`,
+ * `"refresh_token": "…"`), whatever its shape: a Facebook app secret is plain
+ * hex, which no value pattern can tell from a hash (share.myjosh.in,
+ * 2026-10-08, stored the whole secret in a snippet).
+ */
+const KEYED_SECRET_RE =
+  /(\b(?:(?:client|app|api|consumer)_?secret|secret_?key|refresh_?token|access_?token|private_?key|password|passwd)["']?\s*[:=]\s*["'`])([^"'`\s]{8,})(["'`])/gi;
+
 /** Every credential-shaped value in `text`, masked. */
 export function maskSecrets(text: string): string {
   let out = text;
   for (const re of SECRET_VALUE_RES) {
     out = out.replace(re, (m) => maskSecret(m));
   }
+  out = out.replace(KEYED_SECRET_RE, (_m, key: string, value: string, end: string) =>
+    // An already-masked value (`GOCS…gf`) stays as it is.
+    value.includes('…') ? `${key}${value}${end}` : `${key}${maskSecret(value)}${end}`,
+  );
   return out.replace(URL_PASSWORD_RE, (_m, a: string, pass: string, b: string) => `${a}${maskSecret(pass)}${b}`);
 }
 
